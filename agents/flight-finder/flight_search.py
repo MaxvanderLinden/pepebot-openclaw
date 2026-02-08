@@ -4,12 +4,13 @@ Flight search with Pydantic validation.
 Supports Skyscanner, Google Flights, and Booking.com via Brave Search API.
 """
 
-from dotenv import load_dotenv
-load_dotenv()
-
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
 import sys
 import json
+import time
 import requests
 import re
 from typing import Optional, List, Literal
@@ -59,12 +60,10 @@ class FlightSearchParams(BaseModel):
             date_obj = datetime.strptime(v, '%Y-%m-%d')
         except ValueError:
             raise ValueError(f"Invalid date format: {v}. Must be YYYY-MM-DD (e.g., 2026-05-15)")
-        
-        # Optional: Check if date is not too far in the past
-        # Commenting out for flexibility, but you can enable if needed
-        # if date_obj.date() < datetime.now().date():
-        #     raise ValueError(f"Date cannot be in the past: {v}")
-        
+
+        if date_obj.date() < datetime.now().date():
+            raise ValueError(f"Date cannot be in the past: {v}")
+
         return v
 
     model_config = ConfigDict(frozen=True)
@@ -104,12 +103,20 @@ class ComparisonItem(BaseModel):
     is_best: bool = Field(..., description="Whether this is the overall best price")
 
 
+class BestDeal(BaseModel):
+    """Best deal found across all sites."""
+    website: str = Field(..., description="Website name")
+    price: str = Field(..., description="Best price found")
+    url: str = Field(..., description="URL to the best deal")
+    title: str = Field(..., description="Result title")
+
+
 class ComparisonResponse(BaseModel):
     """Response from comparing multiple websites."""
     mode: Literal["comparison"] = Field(default="comparison", description="Response mode")
     sites_checked: int = Field(..., ge=0, le=3, description="Number of sites checked")
     comparison: List[ComparisonItem] = Field(..., description="Price comparison across sites")
-    best_deal: dict = Field(..., description="Best deal found overall")
+    best_deal: BestDeal = Field(..., description="Best deal found overall")
     all_results: List[SearchResponse] = Field(..., description="Full results from all sites")
 
 
@@ -248,7 +255,9 @@ class FlightSearcher:
         sites_to_check = [WebsiteName.SKYSCANNER, WebsiteName.GOOGLE, WebsiteName.BOOKING]
         all_results: List[SearchResponse] = []
         
-        for site in sites_to_check:
+        for i, site in enumerate(sites_to_check):
+            if i > 0:
+                time.sleep(0.5)
             search_params = FlightSearchParams(
                 origin=params.origin,
                 destination=params.destination,
@@ -256,7 +265,7 @@ class FlightSearcher:
                 website=site
             )
             result = self.search_flights(search_params)
-            
+
             if isinstance(result, SearchResponse) and result.cheapest:
                 all_results.append(result)
         
@@ -288,12 +297,12 @@ class FlightSearcher:
             mode="comparison",
             sites_checked=len(all_results),
             comparison=comparison_summary,
-            best_deal={
-                'website': best_deal.website,
-                'price': best_deal.cheapest.price,
-                'url': best_deal.cheapest.url,
-                'title': best_deal.cheapest.title
-            },
+            best_deal=BestDeal(
+                website=best_deal.website,
+                price=best_deal.cheapest.price,
+                url=best_deal.cheapest.url,
+                title=best_deal.cheapest.title
+            ),
             all_results=all_results
         )
 
@@ -315,7 +324,7 @@ class FlightSearcher:
             # Verify result is from target domain
             domain_match = site_config.domain in url.lower()
             
-            if domain_match or price:  # Include if from right domain OR has a price
+            if domain_match:  # Only include results from the target domain
                 # Truncate long descriptions
                 truncated_desc = description[:200] + '...' if len(description) > 200 else description
                 

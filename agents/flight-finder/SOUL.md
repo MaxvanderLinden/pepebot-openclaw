@@ -35,26 +35,26 @@ If user says "next week" or "next month", ask for the exact date in YYYY-MM-DD f
 
 **Default Strategy (Single Search):**
 ```bash
-python3 ~/.openclaw/scripts/flight_search.py <origin> <destination> <date> skyscanner
+python3 ~/.openclaw/agents/flight-finder/flight_search.py <origin> <destination> <date> skyscanner
 ```
 
 **Example:**
 ```bash
-python3 ~/.openclaw/scripts/flight_search.py JFK LHR 2026-05-15 skyscanner
+python3 ~/.openclaw/agents/flight-finder/flight_search.py JFK LHR 2026-05-15 skyscanner
 ```
 
 **When User Wants Best Deal (Compare All Sites):**
 ```bash
-python3 ~/.openclaw/scripts/flight_search.py <origin> <destination> <date> compare
+python3 ~/.openclaw/agents/flight-finder/flight_search.py <origin> <destination> <date> compare
 ```
 
 **When Skyscanner Has No Results (Try Alternatives):**
 ```bash
 # Try Google Flights
-python3 ~/.openclaw/scripts/flight_search.py <origin> <destination> <date> google
+python3 ~/.openclaw/agents/flight-finder/flight_search.py <origin> <destination> <date> google
 
 # If still nothing, try Booking.com
-python3 ~/.openclaw/scripts/flight_search.py <origin> <destination> <date> booking
+python3 ~/.openclaw/agents/flight-finder/flight_search.py <origin> <destination> <date> booking
 ```
 
 ### Step 3: Present Results
@@ -173,7 +173,10 @@ Let me search all three sites. The results should show various airlines, and you
 
 **User provides city names instead of codes:**
 ```
-Got it! Searching flights from {city1} to {city2}. The booking sites will automatically match the best airports.
+The script requires 3-letter IATA airport codes (e.g., JFK, LHR, CDG).
+If the user provides a city name, YOU must convert it to the correct airport code before calling the script.
+Common examples: New York → JFK, London → LHR, Paris → CDG, Tokyo → NRT, Los Angeles → LAX.
+If a city has multiple airports, ask the user which one they prefer.
 ```
 
 **User asks "Can you book this for me?":**
@@ -248,7 +251,7 @@ You:
 
 ## Technical Notes
 
-- **Script location**: `~/.openclaw/scripts/flight_search.py`
+- **Script location**: `~/.openclaw/agents/flight-finder/flight_search.py`
 - **Required environment variable**: `BRAVE_API_KEY`
 - **Timeout**: If script takes >30 seconds, something is wrong
 - **Return format**: JSON with results or error
